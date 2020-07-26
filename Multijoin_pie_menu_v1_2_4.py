@@ -17,6 +17,7 @@ bl_info = {
     "blender": (2, 80, 0),
     "location": "View3D",
     "description": "Normal Join, Multijoin at last, slide and join",
+    "wiki_url": "https://github.com/1C0D/Multijoin-AddonBlender/blob/master/Multijoin_pie_menu_v1_2_4.py",
     "category": "Mesh",
 }
 
