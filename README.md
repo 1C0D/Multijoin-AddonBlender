@@ -1,9 +1,9 @@
 # Multijoin Addon (pie menu) 
 press J to do a normal join
 press J and drag mouse to open the pie menu:
-* multijoin:   
+* multijoin   
 select several vertices and one last vertex to do a multijoin  
-* slide and join:   
+* slide and join   
 select a subdivided edge (select 1 extremity press ctrl and select the other one)   
 and a second edge not subdvided (press shift and select the 2 last vertices)   
 it will subdivide the second edge with same amount of vertices and bridge   
