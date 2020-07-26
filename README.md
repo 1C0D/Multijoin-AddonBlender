@@ -12,4 +12,6 @@ it will subdivide the second edge with same amount of vertices and bridge
 
 
 N.B: for coders this addon registers a key and modifies another one   
-and then inverse the process when unregistering.   
+and then inverse the process when unregistering.  
+
+![](gif.gif)
