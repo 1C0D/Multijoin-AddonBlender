@@ -13,11 +13,10 @@ from bpy.types import Menu
 bl_info = {
     "name": "Multijoin_Pie_Menu",
     "author": "1C0D",
-    "version": (1, 2, 4),
-    "blender": (2, 80, 0),
+    "version": (1, 2, 5),
+    "blender": (2, 83, 0),
     "location": "View3D",
     "description": "Normal Join, Multijoin at last, slide and join",
-    "wiki_url": "https://github.com/1C0D/Multijoin-AddonBlender/blob/master/Multijoin_pie_menu_v1_2_4.py",
     "category": "Mesh",
 }
 
@@ -333,10 +332,11 @@ addon_keymaps = []
 def modify_key():
 
     wm = bpy.context.window_manager   
-    kc = wm.keyconfigs.user
-    for k in kc.keymaps["Mesh"].keymap_items:
-        if k.idname == "mesh.vert_connect_path" and k.active:
-            k.value = 'CLICK'
+    kc = wm.keyconfigs.addon
+    if kc.keymaps.get("Mesh", None):
+        for k in kc.keymaps["Mesh"].keymap_items:
+            if k.idname == "mesh.vert_connect_path" and k.active:
+                k.value = 'CLICK'
 
     if kc:
         km = kc.keymaps.new(name = 'Mesh')
@@ -347,7 +347,7 @@ def modify_key():
 def key_back():
 
     wm = bpy.context.window_manager   
-    kc = wm.keyconfigs.user
+    kc = wm.keyconfigs.addon
     for k in kc.keymaps["Mesh"].keymap_items:
         if k.idname == "mesh.vert_connect_path" and k.active:
             k.value = 'PRESS'
