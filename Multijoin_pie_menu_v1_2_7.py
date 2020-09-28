@@ -448,6 +448,7 @@ def register():
         km = kc.keymaps.new(name='Mesh')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'J', 'CLICK_DRAG')
         kmi.properties.name = "MULTIJOIN_MT_MENU"
+	addon_keymaps.append((km, kmi))
         kmi = km.keymap_items.new('advanced.join', 'J', 'CLICK')
         addon_keymaps.append((km, kmi))
 
