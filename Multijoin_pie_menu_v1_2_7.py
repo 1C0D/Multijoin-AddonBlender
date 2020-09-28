@@ -2,24 +2,133 @@ import bpy
 import bmesh
 from bpy.types import Menu
 from bpy.props import FloatProperty, BoolProperty
+from functools import reduce
 
 '''
--Press J to join
+-Press J: 
+
+    -advanced_join:
+    compared to a simple join (vert_connect_path),
+    it can also join vertices with no face between
+    it can fill faces and merge vertices (threshold) 
+
 -Press J and move to enter pie menu:
-    -multijoin need a last selected vertex
-    -slide and join need 2 last vert or 1 last edge
+    
+    -multijoin: need a last selected vertex
+     it can fill faces
+    
+    -slide and join: need 2 last vert or 1 last edge
+     it can fill faces and merge vertices (threshold)   
+    
 '''
 
 
 bl_info = {
     "name": "Multijoin_Pie_Menu",
     "author": "1C0D",
-    "version": (1, 2, 6),
+    "version": (1, 2, 7),
     "blender": (2, 83, 0),
     "location": "View3D",
     "description": "Normal Join, Multijoin at last, slide and join",
     "category": "Mesh",
 }
+
+
+def is_border_vert(vert):
+	borderEdges = [edge for edge in vert.link_edges if len(edge.link_faces) == 1]
+	return len(borderEdges) > 1
+
+def are_border_verts(verts):
+	return all(is_border_vert(vert) for vert in verts) 
+    
+
+class ADVANCED_OT_JOIN(bpy.types.Operator):
+    """Tooltip"""
+    bl_idname = "advanced.join"
+    bl_label = "Advanced join"
+    bl_options = {"REGISTER", "UNDO"}
+    
+    add_faces:BoolProperty(default=False)
+    rmv_doubles_threshold: FloatProperty(
+        name="Threshold", default=0.0001, precision=4, step=0.004, min=0)
+
+    def execute(self, context):
+
+        obj = bpy.context.object
+        me = obj.data
+        bm = bmesh.from_edit_mesh(me)
+        ordered_selection = []
+        
+        try:
+            for item in bm.select_history:
+                if not isinstance(item, bmesh.types.BMVert):
+                    raise AttributeError                    
+                ordered_selection.append(item)
+
+        except AttributeError:
+            self.report({'ERROR'}, "Select Vertices only")
+            return {'CANCELLED'}
+
+        while len(ordered_selection)>1:
+
+            for v in bm.verts:
+                v.select = False 
+
+            v1 = ordered_selection[-1]
+            v2 = ordered_selection[-2]
+
+            verts=[v1, v2]
+
+            for v in verts:
+                v.select = True
+
+            if are_border_verts(verts):
+
+                if self.add_faces:
+                    other_verts = [e1.other_vert(v1) 
+                                    for e1 in v1.link_edges for e2 in v2.link_edges 
+                                        if e1.other_vert(v1) == e2.other_vert(v2)]
+                    if other_verts:
+                        try:
+                            new=bm.faces.new([v1,other_verts[0],v2])
+                        except:
+                            pass
+                        try:
+                            new1=bm.faces.new([v1,other_verts[1],v2])
+                        except:
+                            pass
+
+                        if new or new1:
+                            bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+                         
+                    else:
+                        try:
+                            bm.edges.new(verts)
+                        except ValueError:
+                            pass
+
+                else: #trick can be border even if face but will try connect path between before
+                    try:
+                        bpy.ops.mesh.vert_connect_path()
+                    except:
+                        try:
+                            bm.edges.new(verts)
+                        except ValueError:
+                            pass
+
+            else:
+                try:
+                    bpy.ops.mesh.vert_connect_path()
+                except:
+                    pass
+
+            ordered_selection.pop()
+
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=self.rmv_doubles_threshold)  
+        bm.normal_update()
+        bmesh.update_edit_mesh(me)
+
+        return {'FINISHED'}
 
 
 class SLIDE_OT_JOIN(bpy.types.Operator):
@@ -177,7 +286,6 @@ class SLIDE_OT_JOIN(bpy.types.Operator):
                     break
 
             edges1 = [e for e in bm.edges if e.select]
-            print("edges1", len(edges1))
 
             try:
                 bmesh.ops.bridge_loops(bm, edges=edges1)  # bridge loops
@@ -244,7 +352,6 @@ class SLIDE_OT_JOIN(bpy.types.Operator):
                 bm, verts=bm.verts, dist=self.rmv_doubles_threshold)
             bmesh.ops.dissolve_degenerate(bm, edges=bm.edges, dist=0.0001)
             bmesh.update_edit_mesh(obj.data)
-            print('mabelleconscienceq')
 
             return {'FINISHED'}
 
@@ -291,7 +398,7 @@ class MULTI_OT_JOIN1(bpy.types.Operator):
                             if v in f.verts and v2 in f.verts:
                                 already = True
                                 break
-                        # if no face already between to first and selected vert: make it
+                        # if no face already between first and selected vert: make it
                         if not(already):
                             bm.faces.new([v, actvert, v2])
 
@@ -301,6 +408,8 @@ class MULTI_OT_JOIN1(bpy.types.Operator):
             bmesh.ops.recalc_face_normals(bm, faces=face_sel)
 
             bmesh.update_edit_mesh(me)
+            
+            return {'FINISHED'}
 
         else:
 
@@ -320,43 +429,12 @@ class MULTIJOIN_MT_MENU (Menu):
         pie.operator("multi.join", text="Multi Join")
         pie.operator("join.slide", text="Slide and Join")
         pie.operator("mesh.vert_connect", text="Connect vert pairs")
+        pie.operator("mesh.vert_connect_path", text="default join")
 
 
 addon_keymaps = []
 
-
-def modify_key():
-
-    wm = bpy.context.window_manager
-    kc = wm.keyconfigs.user
-    for k in kc.keymaps["Mesh"].keymap_items:
-        if k.idname == "mesh.vert_connect_path" and k.active:
-            k.value = 'CLICK'
-
-    if kc:
-        km = kc.keymaps.new(name='Mesh')
-        kmi = km.keymap_items.new('wm.call_menu_pie', 'J', 'CLICK_DRAG')
-        kmi.properties.name = "MULTIJOIN_MT_MENU"
-        addon_keymaps.append((km, kmi))
-
-
-def key_back():
-
-    wm = bpy.context.window_manager   
-    kc = wm.keyconfigs.user
-    for k in kc.keymaps["Mesh"].keymap_items:
-        if k.idname == "mesh.vert_connect_path" and k.active:
-            k.value = 'PRESS'
-            
-    for km, kmi in addon_keymaps:
-        if hasattr(kmi.properties, 'name'):
-            if kmi.properties.name == "MULTIJOIN_MT_MENU":
-                km.keymap_items.remove(kmi)
-                    
-    addon_keymaps.clear()
-
-
-classes = (SLIDE_OT_JOIN, MULTI_OT_JOIN1, MULTIJOIN_MT_MENU)
+classes = (SLIDE_OT_JOIN, MULTI_OT_JOIN1, MULTIJOIN_MT_MENU, ADVANCED_OT_JOIN)
 
 
 def register():
@@ -364,12 +442,26 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    modify_key()
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
+    if kc is not None:
+        km = kc.keymaps.new(name='Mesh')
+        kmi = km.keymap_items.new('wm.call_menu_pie', 'J', 'CLICK_DRAG')
+        kmi.properties.name = "MULTIJOIN_MT_MENU"
+        kmi = km.keymap_items.new('advanced.join', 'J', 'CLICK')
+        addon_keymaps.append((km, kmi))
 
 
 def unregister():
 
-    key_back()
+
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
+    if kc is not None:
+        for km, kmi in addon_keymaps:
+            km.keymap_items.remove(kmi)
+            
+    addon_keymaps.clear()
 
     for cls in classes:
         bpy.utils.unregister_class(cls)
