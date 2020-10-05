@@ -35,11 +35,11 @@ bl_info = {
 
 
 def is_border_vert(vert):
-	borderEdges = [edge for edge in vert.link_edges if len(edge.link_faces) == 1]
-	return len(borderEdges) > 1
+    borderEdges = [edge for edge in vert.link_edges if len(edge.link_faces) == 1]
+    return len(borderEdges) > 1
 
 def are_border_verts(verts):
-	return all(is_border_vert(vert) for vert in verts) 
+    return all(is_border_vert(vert) for vert in verts) 
     
 
 class ADVANCED_OT_JOIN(bpy.types.Operator):
@@ -448,7 +448,7 @@ def register():
         km = kc.keymaps.new(name='Mesh')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'J', 'CLICK_DRAG')
         kmi.properties.name = "MULTIJOIN_MT_MENU"
-	addon_keymaps.append((km, kmi))
+        addon_keymaps.append((km, kmi))
         kmi = km.keymap_items.new('advanced.join', 'J', 'CLICK')
         addon_keymaps.append((km, kmi))
 
