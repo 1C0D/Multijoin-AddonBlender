@@ -19,10 +19,6 @@ press J and drag mouse to open the pie menu:
     it will subdivide the second edge with same amount of vertices and bridge   
 
 * default join
-    the join usually on J
-
-
-N.B: for coders this addon registers a key and modifies another one   
-and then inverse the process when unregistering.  
+    the join usually on J 
 
 ![](gif.gif)
