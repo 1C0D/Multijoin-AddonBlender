@@ -26,7 +26,7 @@ from functools import reduce
 bl_info = {
     "name": "Multijoin_Pie_Menu",
     "author": "1C0D",
-    "version": (1, 2, 7),
+    "version": (1, 2, 9),
     "blender": (2, 83, 0),
     "location": "View3D",
     "description": "Normal Join, Multijoin at last, slide and join",
@@ -431,30 +431,87 @@ class MULTIJOIN_MT_MENU (Menu):
         pie.operator("mesh.vert_connect", text="Connect vert pairs")
         pie.operator("mesh.vert_connect_path", text="default join")
 
+disabled_kmis = []
+
+def get_active_kmi(space: str, **kwargs) -> bpy.types.KeyMapItem:
+    kc = bpy.context.window_manager.keyconfigs.active
+    km = kc.keymaps.get(space)
+    if km:
+        for kmi in km.keymap_items:
+            for key, val in kwargs.items():
+                if getattr(kmi, key) != val and val is not None:
+                    break
+            else:
+                return kmi
+
+def disable_shift_s_snap_kmi():
+    # Be explicit with modifiers shift/ctrl/alt so we don't
+    # accidentally disable a different keymap with same traits.
+    kmi = get_active_kmi("Mesh",
+                         idname="mesh.vert_connect_path",
+                         type='J',
+                         shift=False,
+                         ctrl=False,
+                         alt=False)
+                         
+    if kmi is not None:
+        kmi.active = False
+        disabled_kmis.append(kmi)
+
 
 addon_keymaps = []
 
 classes = (SLIDE_OT_JOIN, MULTI_OT_JOIN1, MULTIJOIN_MT_MENU, ADVANCED_OT_JOIN)
 
 
+# A dictionary with keymap items to disable.
+# The key is the space type.
+# The value is the keymap item traits.
+to_disable = {
+    "Mesh": {"idname": "mesh.vert_connect_path",
+             "type": 'J',
+             "shift": False,
+             "ctrl": False,
+             "alt": False}
+}
+
+
 def register():
+
+    keymaps = bpy.context.window_manager.keyconfigs.active.keymaps
+    if not all(km in keymaps and get_active_kmi(km, **traits)
+               for (km, traits) in to_disable.items()):
+
+        # Keep track of how many times we retry. 20 retries == 2 seconds.
+        register.retries = getattr(register, "retries", 0) + 1
+
+        if register.retries < 20:
+            return bpy.app.timers.register(register, first_interval=0.1)
+
 
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    disable_shift_s_snap_kmi()
+
     wm = bpy.context.window_manager
     kc = wm.keyconfigs.addon
-    if kc is not None:
+    if kc:
         km = kc.keymaps.new(name='Mesh')
-        kmi = km.keymap_items.new('wm.call_menu_pie', 'J', 'CLICK_DRAG')
-        kmi.properties.name = "MULTIJOIN_MT_MENU"
+        kmi = km.keymap_items.new(idname='advanced.join', type='J', value='CLICK')
         addon_keymaps.append((km, kmi))
-        kmi = km.keymap_items.new('advanced.join', 'J', 'CLICK')
+        kmi = km.keymap_items.new(idname='wm.call_menu_pie', type='J', value='CLICK_DRAG')
+        kmi.properties.name = "MULTIJOIN_MT_MENU"
         addon_keymaps.append((km, kmi))
 
 
 def unregister():
 
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
+        
+    for kmi in disabled_kmis:
+        kmi.active = True
 
     wm = bpy.context.window_manager
     kc = wm.keyconfigs.addon
@@ -463,6 +520,3 @@ def unregister():
             km.keymap_items.remove(kmi)
             
     addon_keymaps.clear()
-
-    for cls in classes:
-        bpy.utils.unregister_class(cls)
